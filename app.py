@@ -2,33 +2,32 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 
+from anomaly_detection.detector import Ap5Detector
+
 app = Flask(__name__)
 CORS(app)
 
 CSV_FILE = "data.csv"
+detector = Ap5Detector(expected_mode="SIMULATION")
 
 
-@app.route("/")
-def home():
-    return jsonify({
-        "message": "Brauanlage Flask API läuft",
-        "status": "online"
-    })
-
-
-@app.route("/api/status", methods=["GET"])
-def api_status():
+def read_data():
     df = pd.read_csv(CSV_FILE)
+    return df
+
+
+def get_last_status():
+    df = read_data()
     last = df.iloc[-1].to_dict()
 
-    return jsonify({
+    return {
         "backend": "online",
         "timestamp": last["timestamp"],
         "aktueller_schritt": int(last["aktueller_schritt"]),
         "currentStep": int(last["aktueller_schritt"]),
-        "phase": "Maischen",
-        "alarm": bool(last["alarm"]),
-        "alarmStatus": bool(last["alarm"]),
+        "phase": get_phase(int(last["aktueller_schritt"])),
+        "alarm": str(last["alarm"]).lower() == "true",
+        "alarmStatus": str(last["alarm"]).lower() == "true",
         "durchfluss": float(last["durchfluss"]),
         "flowRate": float(last["durchfluss"]),
         "k1_temperatur": float(last["k1_temperatur"]),
@@ -41,62 +40,177 @@ def api_status():
         "k2Level": float(last["k2_fuellstand"]),
         "k3_fuellstand": float(last["k3_fuellstand"]),
         "k3Level": float(last["k3_fuellstand"])
+    }
+
+
+def get_phase(step):
+    phases = {
+        0: "Idle",
+        1: "Nachguss",
+        2: "Maischen",
+        3: "Läutern",
+        4: "Kochen",
+        5: "Kühlen",
+        6: "Gären",
+        7: "Fertig"
+    }
+    return phases.get(step, "Unknown")
+
+
+def build_detector_payload(status):
+    return {
+        "connectionStatus": "CONNECTED",
+        "source": "SIMULATION",
+        "values": {
+            "K1_Temperatur": status["k1_temperatur"],
+            "K2_Temperatur": status["k2_temperatur"],
+            "K3_Temperatur": status["k3_temperatur"],
+            "MobilerSensor_Temperatur": 0.0,
+            "Durchfluss_NachgussMaische": status["durchfluss"]
+        }
+    }
+
+
+def alarm_to_dict(alarm, alarm_id):
+    return {
+        "id": alarm_id,
+        "ruleId": alarm.ruleId,
+        "code": alarm.code,
+        "severity": alarm.severity,
+        "state": alarm.state,
+        "component": alarm.component,
+        "variable": alarm.variable,
+        "value": alarm.value,
+        "threshold": alarm.threshold,
+        "message": alarm.message,
+        "status": alarm.status,
+        "createdAt": alarm.createdAt.isoformat() if hasattr(alarm.createdAt, "isoformat") else str(alarm.createdAt),
+        "clearedAt": None
+    }
+
+
+@app.route("/")
+def home():
+    return jsonify({
+        "message": "Brauanlage Flask API läuft",
+        "status": "online",
+        "endpoints": [
+            "/api/status",
+            "/api/history",
+            "/api/control",
+            "/api/alarms/active",
+            "/api/alarms/history"
+        ]
     })
 
 
-@app.route("/api/history")
+@app.route("/api/status", methods=["GET"])
+def api_status():
+    return jsonify(get_last_status())
+
+
+@app.route("/api/history", methods=["GET"])
 def history():
-    df = pd.read_csv(CSV_FILE)
+    df = read_data()
     return jsonify(df.to_dict(orient="records"))
 
 
 @app.route("/api/alarms/active", methods=["GET"])
 def active_alarms():
-    status = api_status().get_json()
-    alarms = []
+    status = get_last_status()
+    payload = build_detector_payload(status)
 
-    if status.get("alarm") is True:
-        alarms.append({
-            "id": "alarm-001",
+    alarms = detector.evaluate(
+        payload=payload,
+        fsm_state=status["phase"],
+        invalid_payload=False
+    )
+
+    result = []
+
+    for i, alarm in enumerate(alarms):
+        result.append(alarm_to_dict(alarm, f"ap5-active-{i}"))
+
+    if status["alarm"] is True:
+        result.append({
+            "id": "csv-active-alarm",
             "ruleId": "CSV_001",
             "code": "CSV_ALARM_ACTIVE",
             "severity": "HIGH",
-            "state": status.get("phase", "UNKNOWN"),
+            "state": status["phase"],
             "component": "Brauanlage",
             "variable": "alarm",
             "value": True,
             "threshold": "false",
-            "message": "Flask-Backend meldet eine aktive Anomalie.",
+            "message": "CSV-Datensatz meldet eine aktive Anomalie.",
             "status": "ACTIVE",
-            "createdAt": status.get("timestamp"),
+            "createdAt": status["timestamp"],
             "clearedAt": None
         })
 
-    return jsonify(alarms)
+    return jsonify(result)
 
 
 @app.route("/api/alarms/history", methods=["GET"])
 def alarm_history():
-    df = pd.read_csv(CSV_FILE)
+    df = read_data()
     alarms = []
 
+    previous_values = None
+
     for i, row in df.iterrows():
-        if str(row["alarm"]).lower() == "true":
+        status = {
+            "timestamp": row["timestamp"],
+            "phase": get_phase(int(row["aktueller_schritt"])),
+            "k1_temperatur": float(row["k1_temperatur"]),
+            "k2_temperatur": float(row["k2_temperatur"]),
+            "k3_temperatur": float(row["k3_temperatur"]),
+            "durchfluss": float(row["durchfluss"]),
+            "alarm": str(row["alarm"]).lower() == "true"
+        }
+
+        payload = {
+            "connectionStatus": "CONNECTED",
+            "source": "SIMULATION",
+            "values": {
+                "K1_Temperatur": status["k1_temperatur"],
+                "K2_Temperatur": status["k2_temperatur"],
+                "K3_Temperatur": status["k3_temperatur"],
+                "MobilerSensor_Temperatur": 0.0,
+                "Durchfluss_NachgussMaische": status["durchfluss"]
+            }
+        }
+
+        if previous_values is not None:
+            payload["previous_values"] = previous_values
+
+        detected = detector.evaluate(
+            payload=payload,
+            fsm_state=status["phase"],
+            invalid_payload=False
+        )
+
+        for j, alarm in enumerate(detected):
+            alarms.append(alarm_to_dict(alarm, f"ap5-history-{i}-{j}"))
+
+        if status["alarm"]:
             alarms.append({
-                "id": f"alarm-{i}",
+                "id": f"csv-alarm-{i}",
                 "ruleId": "CSV_001",
                 "code": "CSV_ALARM_ACTIVE",
                 "severity": "HIGH",
-                "state": "Läutern",
+                "state": status["phase"],
                 "component": "Brauanlage",
                 "variable": "alarm",
                 "value": True,
                 "threshold": "false",
                 "message": "CSV-Datensatz enthält eine aktive Anomalie.",
                 "status": "ACTIVE",
-                "createdAt": row["timestamp"],
+                "createdAt": status["timestamp"],
                 "clearedAt": None
             })
+
+        previous_values = payload["values"]
 
     return jsonify(alarms)
 
