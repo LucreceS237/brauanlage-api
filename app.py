@@ -50,6 +50,64 @@ def history():
     return jsonify(df.to_dict(orient="records"))
 
 
+@app.route("/api/alarms/active", methods=["GET"])
+def active_alarms():
+    status = api_status().get_json()
+    alarms = []
+
+    if status.get("alarm") is True:
+        alarms.append({
+            "id": "alarm-001",
+            "ruleId": "CSV_001",
+            "code": "CSV_ALARM_ACTIVE",
+            "severity": "HIGH",
+            "state": status.get("phase", "UNKNOWN"),
+            "component": "Brauanlage",
+            "variable": "alarm",
+            "value": True,
+            "threshold": "false",
+            "message": "Flask-Backend meldet eine aktive Anomalie.",
+            "status": "ACTIVE",
+            "createdAt": status.get("timestamp"),
+            "clearedAt": None
+        })
+
+    return jsonify(alarms)
+
+
+@app.route("/api/alarms/history", methods=["GET"])
+def alarm_history():
+    df = pd.read_csv(CSV_FILE)
+    alarms = []
+
+    for i, row in df.iterrows():
+        if str(row["alarm"]).lower() == "true":
+            alarms.append({
+                "id": f"alarm-{i}",
+                "ruleId": "CSV_001",
+                "code": "CSV_ALARM_ACTIVE",
+                "severity": "HIGH",
+                "state": "Läutern",
+                "component": "Brauanlage",
+                "variable": "alarm",
+                "value": True,
+                "threshold": "false",
+                "message": "CSV-Datensatz enthält eine aktive Anomalie.",
+                "status": "ACTIVE",
+                "createdAt": row["timestamp"],
+                "clearedAt": None
+            })
+
+    return jsonify(alarms)
+
+
+@app.route("/api/alarms/<alarm_id>/acknowledge", methods=["POST"])
+def acknowledge_alarm(alarm_id):
+    return jsonify({
+        "message": f"Alarm {alarm_id} acknowledged"
+    })
+
+
 @app.route("/api/control", methods=["POST"])
 def control():
     return jsonify({
