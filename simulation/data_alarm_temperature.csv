@@ -1,0 +1,4 @@
+timestamp,aktueller_schritt,alarm,durchfluss,k1_temperatur,k2_fuellstand,k2_temperatur,k3_fuellstand,k3_temperatur
+2026-07-04T10:01:00,2,false,3.4,65.0,82,68.0,48,58.0
+2026-07-04T10:01:05,2,true,3.5,66.0,83,86.5,49,59.0
+2026-07-04T10:01:10,2,true,3.6,67.0,84,89.0,50,60.0

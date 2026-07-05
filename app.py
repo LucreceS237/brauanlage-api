@@ -7,12 +7,22 @@ from anomaly_detection.detector import Ap5Detector
 app = Flask(__name__)
 CORS(app)
 
-CSV_FILE = "data.csv"
+SCENARIOS = {
+    "normal": "simulation/data_normal.csv",
+    "temperature_alarm": "simulation/data_alarm_temperature.csv",
+    "sensor_disconnected": "simulation/data_sensor_disconnected.csv",
+    "flow_error": "simulation/data_flow_error.csv",
+    "emergency_stop": "simulation/data_emergency_stop.csv",
+}
+
+CURRENT_SCENARIO = "normal"
 detector = Ap5Detector(expected_mode="SIMULATION")
 
+def get_csv_file():
+    return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
 
 def read_data():
-    df = pd.read_csv(CSV_FILE)
+    df = pd.read_csv(get_csv_file())
     return df
 
 
@@ -229,6 +239,33 @@ def control():
         "received": request.json
     })
 
+@app.route("/api/simulation/scenarios", methods=["GET"])
+def simulation_scenarios():
+    return jsonify([
+        {"id": "normal", "name": "Normalbetrieb"},
+        {"id": "temperature_alarm", "name": "Temperaturfehler"},
+        {"id": "sensor_disconnected", "name": "Sensor getrennt"},
+        {"id": "flow_error", "name": "Durchflussfehler"},
+        {"id": "emergency_stop", "name": "Not-Aus"}
+    ])
+
+
+@app.route("/api/simulation/scenario", methods=["POST"])
+def set_simulation_scenario():
+    global CURRENT_SCENARIO
+
+    data = request.json or {}
+    scenario = data.get("scenario")
+
+    if scenario not in SCENARIOS:
+        return jsonify({"error": "Unknown scenario"}), 400
+
+    CURRENT_SCENARIO = scenario
+
+    return jsonify({
+        "message": "Scenario changed",
+        "scenario": CURRENT_SCENARIO
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
