@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
+import threading
+import time
 
 from anomaly_detection.detector import Ap5Detector
 
@@ -19,6 +21,17 @@ CURRENT_SCENARIO = "normal"
 detector = Ap5Detector(expected_mode="SIMULATION")
 
 current_index = 0
+lock = threading.Lock()
+
+def simulation_loop():
+    global current_index
+
+    while True:
+        time.sleep(1)
+
+        with lock:
+            df = read_data()
+
 
 def get_csv_file():
     return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
@@ -33,6 +46,7 @@ def get_last_status():
 
     df = read_data()
 
+    with lock:
     row = df.iloc[current_index].to_dict()
 
     current_index += 1
@@ -276,6 +290,9 @@ def set_simulation_scenario():
         "message": "Scenario changed",
         "scenario": CURRENT_SCENARIO
     })
+
+thread = threading.Thread(target=simulation_loop, daemon=True)
+thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
