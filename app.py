@@ -32,7 +32,10 @@ def simulation_loop():
         with lock:
             df = read_data()
 
+            current_index += 1
 
+            if current_index >= len(df):
+                current_index = 0
 
 def get_csv_file():
     return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
@@ -43,17 +46,10 @@ def read_data():
 
 
 def get_last_status():
-    global current_index
-
     df = read_data()
 
     with lock:
-    row = df.iloc[current_index].to_dict()
-
-    current_index += 1
-
-    if current_index >= len(df):
-        current_index = 0
+        row = df.iloc[current_index].to_dict()
 
     return {
         "backend": "online",
