@@ -18,6 +18,8 @@ SCENARIOS = {
 CURRENT_SCENARIO = "normal"
 detector = Ap5Detector(expected_mode="SIMULATION")
 
+current_index = 0
+
 def get_csv_file():
     return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
 
@@ -27,29 +29,37 @@ def read_data():
 
 
 def get_last_status():
+    global current_index
+
     df = read_data()
-    last = df.iloc[-1].to_dict()
+
+    row = df.iloc[current_index].to_dict()
+
+    current_index += 1
+
+    if current_index >= len(df):
+        current_index = 0
 
     return {
         "backend": "online",
-        "timestamp": last["timestamp"],
-        "aktueller_schritt": int(last["aktueller_schritt"]),
-        "currentStep": int(last["aktueller_schritt"]),
-        "phase": get_phase(int(last["aktueller_schritt"])),
-        "alarm": str(last["alarm"]).lower() == "true",
-        "alarmStatus": str(last["alarm"]).lower() == "true",
-        "durchfluss": float(last["durchfluss"]),
-        "flowRate": float(last["durchfluss"]),
-        "k1_temperatur": float(last["k1_temperatur"]),
-        "k1Temperature": float(last["k1_temperatur"]),
-        "k2_temperatur": float(last["k2_temperatur"]),
-        "k2Temperature": float(last["k2_temperatur"]),
-        "k3_temperatur": float(last["k3_temperatur"]),
-        "k3Temperature": float(last["k3_temperatur"]),
-        "k2_fuellstand": float(last["k2_fuellstand"]),
-        "k2Level": float(last["k2_fuellstand"]),
-        "k3_fuellstand": float(last["k3_fuellstand"]),
-        "k3Level": float(last["k3_fuellstand"])
+        "timestamp": row["timestamp"],
+        "aktueller_schritt": int(row["aktueller_schritt"]),
+        "currentStep": int(row["aktueller_schritt"]),
+        "phase": get_phase(int(row["aktueller_schritt"])),
+        "alarm": str(row["alarm"]).lower() == "true",
+        "alarmStatus": str(row["alarm"]).lower() == "true",
+        "durchfluss": float(row["durchfluss"]),
+        "flowRate": float(row["durchfluss"]),
+        "k1_temperatur": float(row["k1_temperatur"]),
+        "k1Temperature": float(row["k1_temperatur"]),
+        "k2_temperatur": float(row["k2_temperatur"]),
+        "k2Temperature": float(row["k2_temperatur"]),
+        "k3_temperatur": float(row["k3_temperatur"]),
+        "k3Temperature": float(row["k3_temperatur"]),
+        "k2_fuellstand": float(row["k2_fuellstand"]),
+        "k2Level": float(row["k2_fuellstand"]),
+        "k3_fuellstand": float(row["k3_fuellstand"]),
+        "k3Level": float(row["k3_fuellstand"])
     }
 
 
