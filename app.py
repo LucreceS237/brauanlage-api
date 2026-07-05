@@ -33,6 +33,7 @@ def simulation_loop():
             df = read_data()
 
 
+
 def get_csv_file():
     return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
 
