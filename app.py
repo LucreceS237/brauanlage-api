@@ -321,6 +321,27 @@ def set_simulation_scenario():
         "scenario": CURRENT_SCENARIO
     })
 
+@app.route("/api/simulation/reset", methods=["POST"])
+def reset_simulation():
+    global current_index
+
+    with lock:
+        current_index = 0
+
+    return jsonify({
+        "message": "Simulation restarted",
+        "scenario": CURRENT_SCENARIO
+    })
+
+@app.route("/api/simulation/status", methods=["GET"])
+def simulation_status():
+    return jsonify({
+        "scenario": CURRENT_SCENARIO,
+        "csv": get_csv_file(),
+        "currentIndex": current_index,
+        "backend": "online"
+    })
+
 thread = threading.Thread(target=simulation_loop, daemon=True)
 thread.start()
 
