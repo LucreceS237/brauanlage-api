@@ -57,9 +57,15 @@ def read_data():
 def get_last_status():
     global current_index
 
+    # ---------- Mode OPC-UA ----------
     if USE_OPCUA_FILE:
         payload = read_opcua_file()
         return map_opcua_to_status(payload, get_phase)
+
+    # ---------- Mode CSV ----------
+    df = read_data()
+
+    row = df.iloc[current_index]
 
     return {
         "backend": "online",
@@ -82,7 +88,6 @@ def get_last_status():
         "k3_fuellstand": float(row["k3_fuellstand"]),
         "k3Level": float(row["k3_fuellstand"])
     }
-
 
 def get_phase(step):
     phases = {
