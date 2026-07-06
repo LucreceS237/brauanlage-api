@@ -3,6 +3,8 @@ from flask_cors import CORS
 import pandas as pd
 import threading
 import time
+import json
+from opcua_mapper import map_opcua_to_status
 
 from anomaly_detection.detector import Ap5Detector
 
@@ -23,6 +25,9 @@ detector = Ap5Detector(expected_mode="SIMULATION")
 current_index = 0
 lock = threading.Lock()
 
+USE_OPCUA_FILE = False
+OPCUA_JSON_FILE = "opcua_data.json"
+
 def simulation_loop():
     global current_index
 
@@ -40,16 +45,21 @@ def simulation_loop():
 def get_csv_file():
     return SCENARIOS.get(CURRENT_SCENARIO, SCENARIOS["normal"])
 
+def read_opcua_file():
+    with open(OPCUA_JSON_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 def read_data():
     df = pd.read_csv(get_csv_file())
     return df
 
 
 def get_last_status():
-    df = read_data()
+    global current_index
 
-    with lock:
-        row = df.iloc[current_index].to_dict()
+    if USE_OPCUA_FILE:
+        payload = read_opcua_file()
+        return map_opcua_to_status(payload, get_phase)
 
     return {
         "backend": "online",
@@ -348,6 +358,27 @@ def simulation_state():
         "running": simulation_running,
         "scenario": CURRENT_SCENARIO,
         "index": current_index
+    })
+
+@app.route("/api/source/opcua-file", methods=["POST"])
+def enable_opcua():
+    global USE_OPCUA_FILE
+
+    USE_OPCUA_FILE = True
+
+    return jsonify({
+        "message": "OPC-UA JSON enabled"
+    })
+
+
+@app.route("/api/source/csv", methods=["POST"])
+def enable_csv():
+    global USE_OPCUA_FILE
+
+    USE_OPCUA_FILE = False
+
+    return jsonify({
+        "message": "CSV simulation enabled"
     })
 
 thread = threading.Thread(target=simulation_loop, daemon=True)
