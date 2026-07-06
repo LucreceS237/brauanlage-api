@@ -130,10 +130,40 @@ def home():
             "/api/history",
             "/api/control",
             "/api/alarms/active",
-            "/api/alarms/history"
+            "/api/alarms/history",
+            "/api/health",
+            "/api/info",
+            "/api/ping"
         ]
     })
 
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok",
+        "backend": "online",
+        "simulation": CURRENT_SCENARIO
+    })
+
+
+@app.route("/api/info", methods=["GET"])
+def info():
+    return jsonify({
+        "name": "Brauanlage Digital Twin API",
+        "version": "1.0",
+        "mode": "Simulation",
+        "source": "CSV",
+        "deployment": "Render",
+        "activeScenario": CURRENT_SCENARIO,
+        "availableScenarios": list(SCENARIOS.keys())
+    })
+
+
+@app.route("/api/ping", methods=["GET"])
+def ping():
+    return jsonify({
+        "message": "pong"
+    })
 
 @app.route("/api/status", methods=["GET"])
 def api_status():
