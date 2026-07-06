@@ -342,6 +342,14 @@ def simulation_status():
         "backend": "online"
     })
 
+@app.route("/api/simulation/state", methods=["GET"])
+def simulation_state():
+    return jsonify({
+        "running": simulation_running,
+        "scenario": CURRENT_SCENARIO,
+        "index": current_index
+    })
+
 thread = threading.Thread(target=simulation_loop, daemon=True)
 thread.start()
 
