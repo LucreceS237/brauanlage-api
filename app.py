@@ -274,6 +274,7 @@ def simulation_scenarios():
 @app.route("/api/simulation/scenario", methods=["POST"])
 def set_simulation_scenario():
     global CURRENT_SCENARIO
+    global current_index
 
     data = request.json or {}
     scenario = data.get("scenario")
@@ -281,7 +282,9 @@ def set_simulation_scenario():
     if scenario not in SCENARIOS:
         return jsonify({"error": "Unknown scenario"}), 400
 
-    CURRENT_SCENARIO = scenario
+    with lock:
+        CURRENT_SCENARIO = scenario
+        current_index = 0
 
     return jsonify({
         "message": "Scenario changed",
