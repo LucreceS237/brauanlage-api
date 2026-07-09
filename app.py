@@ -89,6 +89,7 @@ def get_last_status():
         "k3Level": float(row["k3_fuellstand"])
     }
 
+
 def get_phase(step):
     phases = {
         0: "Idle",
